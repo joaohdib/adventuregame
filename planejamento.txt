@@ -1,0 +1,11 @@
+- top down
+- um personagem
+- 3 mobs
+- um ponto inicial, um ponto final
+- 3 vidas (corações)
+- moedas para coletar que contam no jogo
+- tela de game over, tela de vitoria
+- botao de restart
+- mapa de castelo
+    - em txt
+- açao pelo teclado?
