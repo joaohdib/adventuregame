@@ -1,8 +1,8 @@
-- top down
-- um personagem
+- top down FEITO
+- um personagem FEITO
 - 3 mobs
 - um ponto inicial, um ponto final
-- 3 vidas (corações)
+- 3 vidas (corações) FEITO
 - moedas para coletar que contam no jogo
 - tela de game over, tela de vitoria
 - botao de restart
