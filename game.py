@@ -10,7 +10,7 @@ hero_walk = {"right": [],"left": []}
 direction = "right"
 hero_anim_frame = 0
 hero_pos = [300, 0]
-hero_speed = 0.2
+hero_speed = 0.4
 hero_anim_time = 0
 camera_offset = [0, 0]
 zumbi_pos = [400, 300]
@@ -23,6 +23,7 @@ collision_delay = 750  # 1000 ms = 1 segundo
 score = 0  # Pontuação do jogador
 
 moedas = []  # Lista para armazenar as posições das moedas
+moedasColetadas = []
 
 def load_mapa(filename):
     global mapa, moedas
@@ -65,8 +66,8 @@ def check_collision_with_coin(hero_rect):
     global moedas, score
     for moeda in moedas[:]:
         moeda_rect = pygame.Rect(moeda[0], moeda[1], tile_size // 2, tile_size // 2)
-        if hero_rect.colliderect(moeda_rect):
-            moedas.remove(moeda)
+        if (hero_rect.colliderect(moeda_rect)) and (moeda not in moedasColetadas):
+            moedasColetadas.append(moeda)
             score += 10
 
 def update(dt):
@@ -75,28 +76,28 @@ def update(dt):
 
     old_pos = list(hero_pos)
 
-    if keys[pygame.K_RIGHT] and hero_pos[0] + hero_speed * dt < width - tile_size:
+    if keys[pygame.K_RIGHT]:
         hero_pos[0] += hero_speed * dt
         direction = "right"
         hero_anim_time += dt
         if hero_anim_time > 100:
             hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])
             hero_anim_time = 0
-    elif keys[pygame.K_LEFT] and hero_pos[0] - hero_speed * dt > 0:
+    elif keys[pygame.K_LEFT]:
         hero_pos[0] -= hero_speed * dt
         direction = "left"
         hero_anim_time += dt
         if hero_anim_time > 100:
             hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])
             hero_anim_time = 0
-    elif keys[pygame.K_UP] and hero_pos[1] - hero_speed * dt > 0:
+    elif keys[pygame.K_UP]:
         hero_pos[1] -= hero_speed * dt
         direction = "right"
         hero_anim_time += dt
         if hero_anim_time > 100:
             hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])
             hero_anim_time = 0
-    elif keys[pygame.K_DOWN] and hero_pos[1] + hero_speed * dt < height - tile_size:
+    elif keys[pygame.K_DOWN]:
         hero_pos[1] += hero_speed * dt
         direction = "right"
         hero_anim_time += dt
@@ -115,6 +116,7 @@ def update(dt):
             vida -= 1
             last_collision_time = current_time
 
+    
     check_collision_with_coin(hero_rect)
 
     camera_offset[0] = hero_pos[0] - width // 2
@@ -144,12 +146,19 @@ def update(dt):
 def draw_screen(screen):
     screen.fill((0, 0, 0))
 
+    # Desenha as moedas
+    for moeda in moedas:
+        # Desenhar o piso original antes da moeda
+        screen.blit(tile['C'], (moeda[0] - camera_offset[0], moeda[1] - camera_offset[1]))
+        if moeda not in moedasColetadas:
+            screen.blit(moeda_img, (moeda[0] - camera_offset[0], moeda[1] - camera_offset[1]))
+
     for i in range(len(mapa)):
         for j in range(len(mapa[i])):
             tile_type = mapa[i][j]
             if tile_type in tile:
-                screen.blit(tile[tile_type], 
-                            (j * tile_size - camera_offset[0], i * tile_size - camera_offset[1]))
+                screen.blit(tile[tile_type], (j * tile_size - camera_offset[0], i * tile_size - camera_offset[1]))
+                
     
     screen.blit(hero_walk[direction][hero_anim_frame], 
                 (width // 2, height // 2))
@@ -164,10 +173,6 @@ def draw_screen(screen):
     # Desenha o retângulo de colisão do personagem principal
     hero_rect = pygame.Rect(hero_pos[0], hero_pos[1]+18, tile_size*0.7, tile_size * 0.8)
     #pygame.draw.rect(screen, (0, 255, 0), (hero_rect.x - camera_offset[0], hero_rect.y - camera_offset[1], hero_rect.width, hero_rect.height), 2)
-
-    # Desenha as moedas
-    for moeda in moedas:
-        screen.blit(moeda_img, (moeda[0] - camera_offset[0], moeda[1] - camera_offset[1]))
 
     # Desenha os corações de vida
     for i in range(vida):
