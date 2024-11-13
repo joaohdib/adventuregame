@@ -60,16 +60,16 @@ def update(dt):
 
     old_pos = list(hero_pos)
 
-    if keys[pygame.K_RIGHT]:
+    if keys[pygame.K_RIGHT] and hero_pos[0] + hero_speed * dt < width - tile_size:
         hero_pos[0] += hero_speed * dt
         direction = "right"
-    elif keys[pygame.K_LEFT]:
+    elif keys[pygame.K_LEFT] and hero_pos[0] - hero_speed * dt > 0:
         hero_pos[0] -= hero_speed * dt
         direction = "left"
-    elif keys[pygame.K_UP]:
+    elif keys[pygame.K_UP] and hero_pos[1] - hero_speed * dt > 0:
         hero_pos[1] -= hero_speed * dt
         direction = "right"
-    elif keys[pygame.K_DOWN]:
+    elif keys[pygame.K_DOWN] and hero_pos[1] + hero_speed * dt < height - tile_size:
         hero_pos[1] += hero_speed * dt
         direction = "right"
     else:
@@ -114,11 +114,6 @@ def update(dt):
 
 def draw_screen(screen):
     screen.fill((0, 0, 0))
-    for i in range(vida):
-        screen.blit(coracaoCheio,(i*65,10))
-    
-    for i in range(3 - vida):
-        screen.blit(coracaoVazio, ((2 - i) * 65, 10))
 
     for i in range(len(mapa)):
         for j in range(len(mapa[i])):
@@ -140,6 +135,12 @@ def draw_screen(screen):
     # Desenha o retângulo de colisão do personagem principal
     hero_rect = pygame.Rect(hero_pos[0], hero_pos[1]+15, tile_size*0.7, tile_size * 0.8)
     pygame.draw.rect(screen, (0, 255, 0), (hero_rect.x - camera_offset[0], hero_rect.y - camera_offset[1], hero_rect.width, hero_rect.height), 2)
+
+    for i in range(vida):
+        screen.blit(coracaoCheio,(i*65,10))
+    
+    for i in range(3 - vida):
+        screen.blit(coracaoVazio, ((2 - i) * 65, 10))
 
 def main_loop(screen):
     global clock, running
