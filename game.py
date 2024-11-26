@@ -4,6 +4,7 @@ width = 64 * 14
 height = 64 * 10
 tile_size = 64
 item_pos = None
+lama_ativo_list = []  # Lista para controlar se o lama está ativo ou não
 flag_pos = None
 mapa = []
 tile = {}
@@ -36,9 +37,14 @@ chao_pos_list = []
 zumbi_walk = []
 zumbi_anim_frame_list = []
 zumbi_anim_time_list = []
+lama_anim_frame_list = []
+lama_anim_time_list = []
+arqueiro_pos_list = []  # Lista de posições dos arqueiros
+flecha_list = []  # Lista de flechas ativas (cada flecha terá sua posição e direção)
+flecha_speed = 0.5  # Velocidade das flechas
 
 def load_mapa(filename):
-    global mapa, moedas, zumbi_pos_list, lama_pos_list, chao_pos_list, zumbi_speed_list, item_pos, flag_pos
+    global mapa, moedas, zumbi_pos_list, lama_pos_list, chao_pos_list, zumbi_speed_list, item_pos, flag_pos, lama_anim_frame_list, lama_anim_time_list, arqueiro_pos_list
     with open(filename, "r") as file:
         for i, line in enumerate(file.readlines()):
             mapa.append(line.strip())
@@ -53,22 +59,33 @@ def load_mapa(filename):
                     chao_pos_list.append((j * tile_size, i * tile_size))
                 elif char == 'L':
                     lama_pos_list.append([j * tile_size, i * tile_size])
+                    lama_ativo_list.append(False)
+                    lama_anim_frame_list.append(0)
+                    lama_anim_time_list.append(0)
+                    chao_pos_list.append((j * tile_size, i * tile_size))
+                elif char == 'A':  # Novo arqueiro
+                    arqueiro_pos_list.append([j * tile_size, i * tile_size])
                     chao_pos_list.append((j * tile_size, i * tile_size))
                 elif char == 'P':
                     item_pos = (j * tile_size, i * tile_size)
-                    chao_pos_list.append((j * tile_size, i * tile_size))  
+                    chao_pos_list.append((j * tile_size, i * tile_size))
                 elif char == 'F':
                     flag_pos = (j * tile_size, i * tile_size)
-                    chao_pos_list.append((j * tile_size, i * tile_size))  
+                    chao_pos_list.append((j * tile_size, i * tile_size))
 
 def load():
-    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_img, zumbi_walk
-    hero_attack_img = pygame.image.load("cavaleiroAtaque.png")
+    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_imgRight, zumbi_walk, lama_walk,hero_attack_imgLeft
+
+    lama_walk = []
+    hero_attack_imgRight = pygame.image.load("cavaleiroAtaque.png")
+    hero_attack_imgLeft = pygame.image.load("cavaleiroAtaque2.png")
     zumbi_walk = []
 
+
+    for i in range(1, 4):
+        lama_walk.append(pygame.image.load(f"monstrolama{i}.png"))
     for i in range(1, 5):
         zumbi_walk.append(pygame.image.load(f"zumbi ({i}).png"))
-
     for i in range(0, 4):
         hero_walk["right"].append(pygame.image.load(f"knight_f_run_anim_f{i}.png"))
     for i in range(4, 8):
@@ -89,7 +106,7 @@ def load():
     load_mapa("mapa.txt")
 
 def restart_game():
-    global hero_pos, direction, hero_anim_frame, hero_anim_time, camera_offset, zumbi_pos_list, lama_pos_list, moedas, moedasColetadas, vida, pocao_vida, score, last_collision_time
+    global hero_pos, direction, hero_anim_frame, hero_anim_time, camera_offset, zumbi_pos_list, lama_pos_list, moedas, moedasColetadas, vida, pocao_vida, score, last_collision_time, item_coletado, vitoria, mapa, chao_pos_list, zumbi_anim_frame_list, zumbi_anim_time_list, item_pos, flag_pos, zumbi_speed_list, hero_speed
 
     # Redefinindo variáveis para o estado inicial
     hero_pos = [300, 0]
@@ -101,12 +118,22 @@ def restart_game():
     pocao_vida = 1
     score = 0
     last_collision_time = 0
+    item_coletado = False
+    vitoria = False
 
-    # Recarregando inimigos, moedas e chao
+    # Limpar e recarregar o mapa e suas variáveis associadas
+    mapa = []
     zumbi_pos_list = []
+    zumbi_speed_list = []
     lama_pos_list = []
+    chao_pos_list = []
     moedas = []
     moedasColetadas = []
+    zumbi_anim_frame_list = []
+    zumbi_anim_time_list = []
+    item_pos = None
+    flag_pos = None
+    hero_speed = 0.2
 
     # Recarregar o mapa
     load_mapa("mapa.txt")
@@ -228,9 +255,6 @@ def update(dt):
     global hero_anim_frame, hero_pos, hero_anim_time, direction, camera_offset, zumbi_pos_list, lama_pos_list, running, vida, last_collision_time, zumbi_speed_list, is_attacking, attack_time, item_coletado, vitoria, item_pos, hero_speed
     keys = pygame.key.get_pressed()
 
-    old_pos = list(hero_pos)
-
-
     if keys[pygame.K_r]:
         restart_game()
     if keys[pygame.K_e]:
@@ -251,40 +275,44 @@ def update(dt):
             hero_anim_time = 0
     elif keys[pygame.K_w] and hero_pos[1] > -10:
         hero_pos[1] -= hero_speed * dt
-        direction = "right"
         hero_anim_time += dt
         if hero_anim_time > 100:
-            hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])
+            hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])  # Mantém a direção atual (esquerda ou direita)
             hero_anim_time = 0
     elif keys[pygame.K_s] and hero_pos[1] < 440:
         hero_pos[1] += hero_speed * dt
-        direction = "right"
         hero_anim_time += dt
         if hero_anim_time > 100:
-            hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])
+            hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])  # Mantém a direção atual (esquerda ou direita)
             hero_anim_time = 0
     else:
         hero_anim_frame = 0
         hero_anim_time = 0
 
-    hero_rect = pygame.Rect(hero_pos[0], hero_pos[1]+18, tile_size*0.7, tile_size * 0.8)
+    for i, lama_pos in enumerate(lama_pos_list):
+        lama_rect = pygame.Rect(lama_pos[0], lama_pos[1], tile_size, tile_size)
+        hero_rect = pygame.Rect(hero_pos[0], hero_pos[1] + 18, tile_size * 0.7, tile_size * 0.8)
+
+        # Se o herói "ver" o monstro (colidindo com a visão)
+        if hero_rect.colliderect(lama_rect.inflate(450, 450)):
+            lama_ativo_list[i] = True
+
+    hero_rect = pygame.Rect(hero_pos[0], hero_pos[1] + 18, tile_size * 0.7, tile_size * 0.8)
 
     current_time = pygame.time.get_ticks()
     if current_time - last_collision_time > collision_delay:
         if check_collision_with_water(hero_rect):
             vida -= 1
             last_collision_time = current_time
-    
+
     if not item_coletado:
         item_rect = pygame.Rect(item_pos[0], item_pos[1], tile_size, tile_size)
-        hero_rect = pygame.Rect(hero_pos[0], hero_pos[1] + 18, tile_size * 0.7, tile_size * 0.8)
         if hero_rect.colliderect(item_rect):
             item_coletado = True
             hero_speed = 0.15
 
     if flag_pos is not None and item_coletado:
         flag_rect = pygame.Rect(flag_pos[0], flag_pos[1], tile_size, tile_size)
-        hero_rect = pygame.Rect(hero_pos[0], hero_pos[1] + 18, tile_size * 0.7, tile_size * 0.8)
         if hero_rect.colliderect(flag_rect):
             vitoria = True
 
@@ -299,8 +327,6 @@ def update(dt):
         current_time = pygame.time.get_ticks()
         if current_time - attack_time > 200:
             is_attacking = False
-
-    
 
     camera_offset[0] = hero_pos[0] - width // 2
     camera_offset[1] = hero_pos[1] - height // 2
@@ -319,16 +345,24 @@ def update(dt):
             zumbi_anim_time_list[i] = 0
 
     # Atualiza a posição dos monstros de lama (seguem o jogador)
-    for lama_pos in lama_pos_list:
-        if lama_pos[0] < hero_pos[0]:
-            lama_pos[0] += lama_speed * dt
-        elif lama_pos[0] > hero_pos[0]:
-            lama_pos[0] -= lama_speed * dt
+    for i, lama_pos in enumerate(lama_pos_list):
+        # Atualiza o tempo de animação
+        lama_anim_time_list[i] += dt
+        if lama_anim_time_list[i] > 200:  # Trocar frame a cada 200 ms
+            lama_anim_frame_list[i] = (lama_anim_frame_list[i] + 1) % len(lama_walk)
+            lama_anim_time_list[i] = 0
 
-        if lama_pos[1] < hero_pos[1]:
-            lama_pos[1] += lama_speed * dt
-        elif lama_pos[1] > hero_pos[1]:
-            lama_pos[1] -= lama_speed * dt
+        # Atualiza a posição do lama se ele estiver ativo
+        if lama_ativo_list[i]:  # Verifica se o lama está ativo
+            if lama_pos[0] < hero_pos[0]:
+                lama_pos[0] += lama_speed * dt
+            elif lama_pos[0] > hero_pos[0]:
+                lama_pos[0] -= lama_speed * dt
+
+            if lama_pos[1] < hero_pos[1]:
+                lama_pos[1] += lama_speed * dt
+            elif lama_pos[1] > hero_pos[1]:
+                lama_pos[1] -= lama_speed * dt
 
     # Verifica colisão com os zumbis
     for zumbi_pos in zumbi_pos_list:
@@ -355,6 +389,7 @@ def update(dt):
         show_end_screen(screen, "Você venceu! Pressione qualquer tecla para sair.")
 
 def draw_screen(screen):
+    global direction
     font = pygame.font.Font(None, 36)
     screen.fill((0, 0, 0))
 
@@ -378,7 +413,11 @@ def draw_screen(screen):
                 screen.blit(tile[tile_type], (j * tile_size - camera_offset[0], i * tile_size - camera_offset[1]))
                 
     if is_attacking:
-         screen.blit(hero_attack_img, (width // 2, height // 2))
+        if direction == 'right':
+            screen.blit(hero_attack_imgRight, (width // 2, height // 2))
+        elif direction == 'left':
+            screen.blit(hero_attack_imgLeft, (width // 2, height // 2))
+    
     else:
          screen.blit(hero_walk[direction][hero_anim_frame], (width // 2, height // 2))
 
@@ -388,8 +427,9 @@ def draw_screen(screen):
         screen.blit(zumbi_frame, (zumbi_pos[0] - camera_offset[0], zumbi_pos[1] - camera_offset[1]))
 
     # Desenha os monstros de lama
-    for lama_pos in lama_pos_list:
-        screen.blit(lama, (lama_pos[0] - camera_offset[0], lama_pos[1] - camera_offset[1]))
+    for i, lama_pos in enumerate(lama_pos_list):
+        lama_frame = lama_walk[lama_anim_frame_list[i]]  # Pega o frame atual do lama
+        screen.blit(lama_frame, (lama_pos[0] - camera_offset[0], lama_pos[1] - camera_offset[1]))
 
     # Desenha o retângulo de colisão do personagem principal
     hero_rect = pygame.Rect(hero_pos[0], hero_pos[1]+18, tile_size*0.7, tile_size * 0.8)
