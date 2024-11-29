@@ -1,4 +1,5 @@
 import pygame
+import random
 
 width = 64 * 14
 height = 64 * 10
@@ -16,6 +17,8 @@ hero_walk = {"right": [],"left": []}
 direction = "right"
 hero_anim_frame = 0
 hero_pos = [300, 0]
+is_damaged = False
+damage_time = 0
 hero_speed = 0.2 #---- VELOCIDADE HEROI
 is_attacking = False
 attack_time = 0
@@ -24,7 +27,7 @@ camera_offset = [0, 0]
 zumbi_pos_list = []
 zumbi_speed_list = []
 lama_pos_list = []
-lama_speed = 0.05
+lama_speed = 0.09
 multiplicador_tile = 1.3
 vida = 3
 pocao_vida = 1  
@@ -39,12 +42,10 @@ zumbi_anim_frame_list = []
 zumbi_anim_time_list = []
 lama_anim_frame_list = []
 lama_anim_time_list = []
-arqueiro_pos_list = []  # Lista de posições dos arqueiros
-flecha_list = []  # Lista de flechas ativas (cada flecha terá sua posição e direção)
-flecha_speed = 0.5  # Velocidade das flechas
+
 
 def load_mapa(filename):
-    global mapa, moedas, zumbi_pos_list, lama_pos_list, chao_pos_list, zumbi_speed_list, item_pos, flag_pos, lama_anim_frame_list, lama_anim_time_list, arqueiro_pos_list
+    global mapa, moedas, zumbi_pos_list, lama_pos_list, chao_pos_list, zumbi_speed_list, item_pos, flag_pos, lama_anim_frame_list, lama_anim_time_list
     with open(filename, "r") as file:
         for i, line in enumerate(file.readlines()):
             mapa.append(line.strip())
@@ -55,16 +56,13 @@ def load_mapa(filename):
                     zumbi_anim_frame_list.append(0)
                     zumbi_anim_time_list.append(0)
                     zumbi_pos_list.append([j * tile_size, i * tile_size])
-                    zumbi_speed_list.append(0.2)
+                    zumbi_speed_list.append(0.3)
                     chao_pos_list.append((j * tile_size, i * tile_size))
                 elif char == 'L':
                     lama_pos_list.append([j * tile_size, i * tile_size])
                     lama_ativo_list.append(False)
                     lama_anim_frame_list.append(0)
                     lama_anim_time_list.append(0)
-                    chao_pos_list.append((j * tile_size, i * tile_size))
-                elif char == 'A':  # Novo arqueiro
-                    arqueiro_pos_list.append([j * tile_size, i * tile_size])
                     chao_pos_list.append((j * tile_size, i * tile_size))
                 elif char == 'P':
                     item_pos = (j * tile_size, i * tile_size)
@@ -74,13 +72,14 @@ def load_mapa(filename):
                     chao_pos_list.append((j * tile_size, i * tile_size))
 
 def load():
-    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_imgRight, zumbi_walk, lama_walk,hero_attack_imgLeft
+
+    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_imgRight, zumbi_walk, lama_walk, hero_attack_imgLeft, hero_damage_img
 
     lama_walk = []
     hero_attack_imgRight = pygame.image.load("cavaleiroAtaque.png")
     hero_attack_imgLeft = pygame.image.load("cavaleiroAtaque2.png")
+    hero_damage_img = pygame.image.load("dano.png")  # Carregar a imagem do herói recebendo dano
     zumbi_walk = []
-
 
     for i in range(1, 4):
         lama_walk.append(pygame.image.load(f"monstrolama{i}.png"))
@@ -199,24 +198,53 @@ def check_attack():
                         score += 20
 
 def show_start_screen(screen):
-    screen.fill((0, 0, 0))
-    font = pygame.font.Font(None, 30)
-    # Texto de boas-vindas
-    text = font.render("Bem-vindo!", True, (255, 255, 255))
-    screen.blit(text, (width // 2 - text.get_width() // 2, height // 2 - text.get_height() // 2 - 40))
+    pygame.font.init()
 
-    # Texto de instrução
-    instruction_text = font.render("Você deve resgatar a princesa e retornar com ela para a bandeira", True, (255, 255, 255))
-    screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - instruction_text.get_height() // 2))
+    # Carregar fontes e definir cores
+    title_font = pygame.font.Font(None, 120)  # Fonte maior para o título
+    text_font = pygame.font.Font(None, 50)
+    small_font = pygame.font.Font(None, 40)
 
-    # Texto para iniciar o jogo
-    start_text = font.render("Pressione qualquer tecla para começar", True, (255, 255, 255))
-    screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 - start_text.get_height() // 2 + 40))
+    # Cores
+    title_color = (0, 0, 0)  # Dourado
+    text_color = (255, 255, 255)  # Branco
+    highlight_color = (255, 255, 0)  # Laranja claro para destaque
 
-    pygame.display.flip()
+    # Carregar imagem de fundo do castelo
+    castle_image = pygame.image.load("castelo.png")
+    castle_image = pygame.transform.scale(castle_image, (width, height))
+
+    # Controlador de animação de piscar
+    blink_time = 0
+    show_press_key = True
 
     waiting = True
     while waiting:
+        # Desenhar o fundo do castelo
+        screen.blit(castle_image, (0, 0))
+
+        # Texto de título
+        title_text = title_font.render("Castle Crusader", True, title_color)
+        screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 2 - 180))
+
+        # Texto de instrução
+        instruction_text = text_font.render("Resgate a princesa e retorne em segurança!", True, text_color)
+        screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - 60))
+
+        # Texto para iniciar o jogo (piscar)
+        blink_time += 1
+        if blink_time > 30:
+            blink_time = 0
+            show_press_key = not show_press_key
+
+        if show_press_key:
+            start_text = small_font.render("Pressione qualquer tecla para começar", True, highlight_color)
+            screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 + 80))
+
+        # Atualizar a tela
+        pygame.display.flip()
+
+        # Esperar pela entrada do jogador
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -224,20 +252,73 @@ def show_start_screen(screen):
             if event.type == pygame.KEYDOWN:
                 waiting = False
 
+    # Parar a música de fundo ao sair da tela de início
+    pygame.mixer.music.stop()
+
 def show_end_screen(screen, message):
     global running  
-    screen.fill((0, 0, 0))  # Preenche a tela de preto
-    font = pygame.font.Font(None, 40)
-    text = font.render(message, True, (255, 255, 255))
-    screen.blit(text, (width // 2 - text.get_width() // 2, height // 2 - text.get_height() // 2))
-    restart_text = font.render("Pressione 'R' para reiniciar ou outra tecla para sair", True, (255, 255, 255))
-    screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 100))
+    # Carregar fontes e definir cores
+    pygame.font.init()
+    title_font = pygame.font.Font(None, 80)  # Fonte maior para o título
+    text_font = pygame.font.Font(None, 40)
+    small_font = pygame.font.Font(None, 30)
 
-    pygame.display.flip()  # Atualiza a tela
+    # Cores
+    background_color = (0, 0, 50)  # Azul escuro
+    title_color = (255, 223, 0)  # Dourado
+    text_color = (255, 255, 255)  # Branco
+    highlight_color = (50, 205, 50)  # Verde claro para destaque
 
-    # Espera o jogador pressionar 'R' para reiniciar ou qualquer outra tecla para sair
+    # Preencher a tela com uma cor de fundo estilizada
+    screen.fill(background_color)
+
+    # Desenhar um título com efeito de sombra para destaque
+    shadow_offset = 5
+    title_text = title_font.render("Vitória!", True, (0, 0, 0))
+    screen.blit(title_text, (width // 2 - title_text.get_width() // 2 + shadow_offset, height // 2 - 150 + shadow_offset))
+    title_text = title_font.render("Vitória!", True, title_color)
+    screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 2 - 150))
+
+    # Desenhar o texto principal da mensagem de vitória
+    message_text = text_font.render(message, True, text_color)
+    screen.blit(message_text, (width // 2 - message_text.get_width() // 2, height // 2 - 50))
+
+    # Instruções para o jogador
+    restart_text = text_font.render("Pressione 'R' para reiniciar ou qualquer outra tecla para sair", True, highlight_color)
+    screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 50))
+
+    # Elementos decorativos: Partículas de confete
+    particles = []
+    for _ in range(100):
+        particles.append({
+            'x': random.randint(0, width),
+            'y': random.randint(0, height),
+            'radius': random.randint(2, 5),
+            'color': (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255)),
+            'velocity': random.uniform(0.5, 2.0)
+        })
+
     waiting = True
     while waiting:
+        screen.fill(background_color)  # Re-pintar o fundo a cada frame
+
+        # Desenhar elementos de texto
+        screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 2 - 150))
+        screen.blit(message_text, (width // 2 - message_text.get_width() // 2, height // 2 - 50))
+        screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 50))
+
+        # Atualizar e desenhar as partículas de confete
+        for particle in particles:
+            particle['y'] += particle['velocity']
+            if particle['y'] > height:
+                particle['y'] = -10  # Reseta a posição para dar efeito de "chuva infinita"
+                particle['x'] = random.randint(0, width)
+            pygame.draw.circle(screen, particle['color'], (particle['x'], int(particle['y'])), particle['radius'])
+
+        # Atualizar a tela
+        pygame.display.flip()
+
+        # Esperar pela entrada do jogador
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -250,9 +331,8 @@ def show_end_screen(screen, message):
                 else:
                     pygame.quit()
                     quit()
-
 def update(dt):
-    global hero_anim_frame, hero_pos, hero_anim_time, direction, camera_offset, zumbi_pos_list, lama_pos_list, running, vida, last_collision_time, zumbi_speed_list, is_attacking, attack_time, item_coletado, vitoria, item_pos, hero_speed
+    global hero_anim_frame, hero_pos, hero_anim_time, direction, camera_offset, zumbi_pos_list, lama_pos_list, running, vida, last_collision_time, zumbi_speed_list, is_attacking, attack_time, item_coletado, vitoria, item_pos, hero_speed, damage_time
     keys = pygame.key.get_pressed()
 
     if keys[pygame.K_r]:
@@ -304,6 +384,8 @@ def update(dt):
         if check_collision_with_water(hero_rect):
             vida -= 1
             last_collision_time = current_time
+            is_damaged = True  # Define o estado de dano
+            damage_time = current_time  # Registra o momento do dano
 
     if not item_coletado:
         item_rect = pygame.Rect(item_pos[0], item_pos[1], tile_size, tile_size)
@@ -380,6 +462,9 @@ def update(dt):
                 vida -= 1
                 last_collision_time = current_time
 
+    if current_time - damage_time > 500:  # O estado de dano dura 500 ms
+        is_damaged = False
+
     if vida == 0:
         running = False
         show_end_screen(screen, "Você perdeu! Pressione qualquer tecla para sair.")
@@ -389,7 +474,7 @@ def update(dt):
         show_end_screen(screen, "Você venceu! Pressione qualquer tecla para sair.")
 
 def draw_screen(screen):
-    global direction
+    global direction, is_damaged
     font = pygame.font.Font(None, 36)
     screen.fill((0, 0, 0))
 
@@ -412,14 +497,15 @@ def draw_screen(screen):
             if tile_type in tile:
                 screen.blit(tile[tile_type], (j * tile_size - camera_offset[0], i * tile_size - camera_offset[1]))
                 
-    if is_attacking:
+    if is_damaged:
+        screen.blit(hero_damage_img, (width // 2, height // 2))
+    elif is_attacking:
         if direction == 'right':
             screen.blit(hero_attack_imgRight, (width // 2, height // 2))
         elif direction == 'left':
             screen.blit(hero_attack_imgLeft, (width // 2, height // 2))
-    
     else:
-         screen.blit(hero_walk[direction][hero_anim_frame], (width // 2, height // 2))
+        screen.blit(hero_walk[direction][hero_anim_frame], (width // 2, height // 2))
 
     # Desenha os zumbis
     for i, zumbi_pos in enumerate(zumbi_pos_list):
