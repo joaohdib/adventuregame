@@ -2,8 +2,8 @@ import pygame
 import random
 import sys
 
-width = 64 * 14
-height = 64 * 10
+width = 1280
+height = 720
 tile_size = 64
 item_pos = None
 lama_ativo_list = [] 
@@ -73,7 +73,7 @@ def load_mapa(filename):
                     chao_pos_list.append((j * tile_size, i * tile_size))
 
 def load():
-    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_imgRight, zumbi_walk, lama_walk, hero_attack_imgLeft, hero_damage_img, walk_sound, walk_channel, potion_sound, coin_sound, sword_sound, sword_channel, damage_sound, win_sound, ambient_channel, ambient_sound, gameover_sound
+    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_imgRight, zumbi_walk, lama_walk, hero_attack_imgLeft, hero_damage_img, walk_sound, walk_channel, potion_sound, coin_sound, sword_sound, sword_channel, damage_sound, win_sound, ambient_channel, ambient_sound, gameover_sound, kill_sound
 
     pygame.mixer.init()
     
@@ -89,6 +89,7 @@ def load():
     damage_sound = pygame.mixer.Sound("damage.ogg")
     win_sound = pygame.mixer.Sound("win.mp3")
     gameover_sound = pygame.mixer.Sound("gameover.mp3")
+    kill_sound = pygame.mixer.Sound("kill.mp3")
     
     ambient_channel = pygame.mixer.Channel(2)
     ambient_channel.play(ambient_sound, loops=-1)  # Som de ambiente em loop infinito
@@ -185,7 +186,7 @@ def check_collision_with_coin(hero_rect):
             score += 10
 
 def check_attack():
-    global zumbi_pos_list, lama_pos_list, score, last_attack_time, attack_cooldown, score
+    global zumbi_pos_list, lama_pos_list, score, last_attack_time, attack_cooldown, score, kill_sound
 
     current_time = pygame.time.get_ticks()  # Tempo atual em milissegundos
     if current_time - last_attack_time >= attack_cooldown:  # Verificar se o cooldown terminou
@@ -204,22 +205,27 @@ def check_attack():
                     if hero_rect.right < zumbi_rect.left and hero_rect.colliderect(zumbi_rect.inflate(tile_size, 0)):
                         zumbi_pos_list.remove(zumbi_pos)
                         score += 20
+                        return True
                 for lama_pos in lama_pos_list[:]:
                     lama_rect = pygame.Rect(lama_pos[0], lama_pos[1], tile_size, tile_size)
                     if hero_rect.right < lama_rect.left and hero_rect.colliderect(lama_rect.inflate(tile_size, 0)):
                         lama_pos_list.remove(lama_pos)
                         score += 20
+                        return True
             elif direction == "left":
                 for zumbi_pos in zumbi_pos_list[:]:
                     zumbi_rect = pygame.Rect(zumbi_pos[0], zumbi_pos[1], tile_size, tile_size * multiplicador_tile)
                     if hero_rect.left > zumbi_rect.right and hero_rect.colliderect(zumbi_rect.inflate(tile_size, 0)):
                         zumbi_pos_list.remove(zumbi_pos)
                         score += 20
+                        return True
                 for lama_pos in lama_pos_list[:]:
                     lama_rect = pygame.Rect(lama_pos[0], lama_pos[1], tile_size, tile_size)
                     if hero_rect.left > lama_rect.right and hero_rect.colliderect(lama_rect.inflate(tile_size, 0)):
                         lama_pos_list.remove(lama_pos)
                         score += 20
+                        return True
+    return False
 
 def show_start_screen(screen):
     pygame.font.init()
@@ -231,7 +237,8 @@ def show_start_screen(screen):
     command_font = pygame.font.Font(None, 36)  # Fonte menor para os comandos
 
     # Cores
-    title_color = (0, 0, 0)  # Preto
+    title_color = (255, 223, 0)  # Dourado para o título
+    title_shadow_color = (0, 0, 0)  # Sombra preta para o brilho
     text_color = (255, 255, 255)  # Branco
     command_color = (200, 200, 200)  # Cinza claro para os comandos
     highlight_color = (255, 255, 0)  # Amarelo para destaque
@@ -249,15 +256,20 @@ def show_start_screen(screen):
         # Desenhar o fundo do castelo
         screen.blit(castle_image, (0, 0))
 
-        # Texto de título
+        # Criar o efeito de sombra no título
+        title_text = title_font.render("Castle Crusader", True, title_shadow_color)
+        shadow_offset = 5  # Deslocamento da sombra
+        screen.blit(title_text, (width // 2 - title_text.get_width() // 2 + shadow_offset, height // 2 - 220 + shadow_offset))
+        
+        # Texto do título com a cor dourada
         title_text = title_font.render("Castle Crusader", True, title_color)
         screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 2 - 220))
 
         # Texto de instrução
         instruction_text = text_font.render("Resgate a princesa e retorne em segurança!", True, text_color)
-        screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - 120))
+        #screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - 120))
 
-        # Comandos do jogador
+        '''# Comandos do jogador
         commands = [
             "WASD - Andar",
             "E - Usar poção de vida",
@@ -272,11 +284,11 @@ def show_start_screen(screen):
         blink_time += 1
         if blink_time > 30:
             blink_time = 0
-            show_press_key = not show_press_key
+            show_press_key = not show_press_key'''
 
         if show_press_key:
             start_text = small_font.render("Pressione qualquer tecla para começar", True, highlight_color)
-            screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 + 150))
+            #screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 + 150))
 
         # Atualizar a tela
         pygame.display.flip()
@@ -464,7 +476,7 @@ def show_death_screen(screen):
         pygame.time.Clock().tick(60)
 
 def update(dt):
-    global hero_anim_frame, hero_pos, hero_anim_time, direction, camera_offset, zumbi_pos_list, lama_pos_list, running, vida, last_collision_time, zumbi_speed_list, is_attacking, attack_time, item_coletado, vitoria, item_pos, hero_speed, damage_time, isMoving, walk_channel, walk_sound, potion_sound, sword_channel, damage_sound
+    global hero_anim_frame, hero_pos, hero_anim_time, direction, camera_offset, zumbi_pos_list, lama_pos_list, running, vida, last_collision_time, zumbi_speed_list, is_attacking, attack_time, item_coletado, vitoria, item_pos, hero_speed, damage_time, isMoving, walk_channel, walk_sound, potion_sound, sword_channel, damage_sound, kill_sound
     keys = pygame.key.get_pressed()
 
     isMoving = False
@@ -547,11 +559,14 @@ def update(dt):
     if mouse_pressed[0]:  # Botão esquerdo do mouse pressionado
         is_attacking = True
         attack_time = pygame.time.get_ticks()
-        check_attack()  # Continue verificando se acertou algum monstro
+        if not check_attack():  # Continue verificando se acertou algum monstro
+            if not sword_channel.get_busy():
+                sword_channel.play(sword_sound)
+        else:
+            kill_sound.play()
+       
 
     if is_attacking:
-        if not sword_channel.get_busy():
-            sword_channel.play(sword_sound)
         current_time = pygame.time.get_ticks()
         if current_time - attack_time > 200:
             is_attacking = False
@@ -700,8 +715,6 @@ def draw_screen(screen):
     screen.blit(score_text, (width - 200, 10))
     pocao_text = font.render(f"Poções de Vida: {pocao_vida}", True, (255, 255, 255))
     screen.blit(pocao_text, (width - 250, 50))
-
-    print(hero_pos)
 
 def main_loop(screen):
     global clock, running
