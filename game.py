@@ -90,6 +90,7 @@ def load():
     win_sound = pygame.mixer.Sound("win.mp3")
     gameover_sound = pygame.mixer.Sound("gameover.mp3")
     kill_sound = pygame.mixer.Sound("kill.mp3")
+    kill_sound.set_volume(0.3)
     
     ambient_channel = pygame.mixer.Channel(2)
     ambient_channel.play(ambient_sound, loops=-1)  # Som de ambiente em loop infinito
