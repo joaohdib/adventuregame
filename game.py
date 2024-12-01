@@ -1,11 +1,12 @@
 import pygame
 import random
+import sys
 
 width = 64 * 14
 height = 64 * 10
 tile_size = 64
 item_pos = None
-lama_ativo_list = []  # Lista para controlar se o lama está ativo ou não
+lama_ativo_list = [] 
 flag_pos = None
 mapa = []
 tile = {}
@@ -42,7 +43,7 @@ zumbi_anim_frame_list = []
 zumbi_anim_time_list = []
 lama_anim_frame_list = []
 lama_anim_time_list = []
-
+isMoving = False
 
 def load_mapa(filename):
     global mapa, moedas, zumbi_pos_list, lama_pos_list, chao_pos_list, zumbi_speed_list, item_pos, flag_pos, lama_anim_frame_list, lama_anim_time_list
@@ -72,8 +73,26 @@ def load_mapa(filename):
                     chao_pos_list.append((j * tile_size, i * tile_size))
 
 def load():
+    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_imgRight, zumbi_walk, lama_walk, hero_attack_imgLeft, hero_damage_img, walk_sound, walk_channel, potion_sound, coin_sound, sword_sound, sword_channel, damage_sound, win_sound, ambient_channel, ambient_sound, gameover_sound
 
-    global clock, tile, hero_walk, zumbi, lama, coracaoCheio, coracaoVazio, moeda_img, hero_attack_imgRight, zumbi_walk, lama_walk, hero_attack_imgLeft, hero_damage_img
+    pygame.mixer.init()
+    
+    walk_channel = pygame.mixer.Channel(1)  # Canal 0 para o som de andar
+    sword_channel = pygame.mixer.Channel(3)
+    walk_channel.set_volume(0.5)  
+    walk_sound = pygame.mixer.Sound("walking.mp3")  
+    potion_sound = pygame.mixer.Sound("potiondrink.wav") 
+    potion_sound.set_volume(1.0)  # O volume vai de 0.0 (mudo) a 1.0 (máximo)
+    coin_sound = pygame.mixer.Sound("coin.wav")  
+    ambient_sound = pygame.mixer.Sound("ambient.mp3")  
+    sword_sound =  pygame.mixer.Sound("espada.mp3")  
+    damage_sound = pygame.mixer.Sound("damage.ogg")
+    win_sound = pygame.mixer.Sound("win.mp3")
+    gameover_sound = pygame.mixer.Sound("gameover.mp3")
+    
+    ambient_channel = pygame.mixer.Channel(2)
+    ambient_channel.play(ambient_sound, loops=-1)  # Som de ambiente em loop infinito
+    ambient_channel.set_volume(0.3)
 
     lama_walk = []
     hero_attack_imgRight = pygame.image.load("cavaleiroAtaque.png")
@@ -105,8 +124,11 @@ def load():
     load_mapa("mapa.txt")
 
 def restart_game():
-    global hero_pos, direction, hero_anim_frame, hero_anim_time, camera_offset, zumbi_pos_list, lama_pos_list, moedas, moedasColetadas, vida, pocao_vida, score, last_collision_time, item_coletado, vitoria, mapa, chao_pos_list, zumbi_anim_frame_list, zumbi_anim_time_list, item_pos, flag_pos, zumbi_speed_list, hero_speed
+    global hero_pos, direction, hero_anim_frame, hero_anim_time, camera_offset, zumbi_pos_list, lama_pos_list, moedas, moedasColetadas, vida, pocao_vida, score, last_collision_time, item_coletado, vitoria, mapa, chao_pos_list, zumbi_anim_frame_list, zumbi_anim_time_list, item_pos, flag_pos, zumbi_speed_list, hero_speed, walk_channel, ambient_channel, ambient_sound
 
+
+    ambient_channel.play(ambient_sound, loops=-1)
+    walk_channel.stop()
     # Redefinindo variáveis para o estado inicial
     hero_pos = [300, 0]
     direction = "right"
@@ -138,12 +160,13 @@ def restart_game():
     load_mapa("mapa.txt")
 
 def use_pocao_vida():
-    global vida, pocao_vida
+    global vida, pocao_vida, potion_sound
     if pocao_vida > 0 and vida < 3:
         vida = 3
         pocao_vida -= 1
+        potion_sound.play()
 
-def check_collision_with_water(hero_rect):
+def check_collision_with_spike(hero_rect):
     for i in range(len(mapa)):
         for j in range(len(mapa[i])):
             if mapa[i][j] == 'E':
@@ -153,15 +176,16 @@ def check_collision_with_water(hero_rect):
     return False
 
 def check_collision_with_coin(hero_rect):
-    global moedas, score
+    global moedas, score, coin_sound
     for moeda in moedas[:]:
         moeda_rect = pygame.Rect(moeda[0], moeda[1], tile_size // 2, tile_size // 2)
         if (hero_rect.colliderect(moeda_rect)) and (moeda not in moedasColetadas):
             moedasColetadas.append(moeda)
+            coin_sound.play()
             score += 10
 
 def check_attack():
-    global zumbi_pos_list, lama_pos_list, score, last_attack_time, attack_cooldown
+    global zumbi_pos_list, lama_pos_list, score, last_attack_time, attack_cooldown, score
 
     current_time = pygame.time.get_ticks()  # Tempo atual em milissegundos
     if current_time - last_attack_time >= attack_cooldown:  # Verificar se o cooldown terminou
@@ -204,11 +228,13 @@ def show_start_screen(screen):
     title_font = pygame.font.Font(None, 120)  # Fonte maior para o título
     text_font = pygame.font.Font(None, 50)
     small_font = pygame.font.Font(None, 40)
+    command_font = pygame.font.Font(None, 36)  # Fonte menor para os comandos
 
     # Cores
-    title_color = (0, 0, 0)  # Dourado
+    title_color = (0, 0, 0)  # Preto
     text_color = (255, 255, 255)  # Branco
-    highlight_color = (255, 255, 0)  # Laranja claro para destaque
+    command_color = (200, 200, 200)  # Cinza claro para os comandos
+    highlight_color = (255, 255, 0)  # Amarelo para destaque
 
     # Carregar imagem de fundo do castelo
     castle_image = pygame.image.load("castelo.png")
@@ -225,11 +251,22 @@ def show_start_screen(screen):
 
         # Texto de título
         title_text = title_font.render("Castle Crusader", True, title_color)
-        screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 2 - 180))
+        screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 2 - 220))
 
         # Texto de instrução
         instruction_text = text_font.render("Resgate a princesa e retorne em segurança!", True, text_color)
-        screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - 60))
+        screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - 120))
+
+        # Comandos do jogador
+        commands = [
+            "WASD - Andar",
+            "E - Usar poção de vida",
+            "R - Reiniciar o jogo",
+            "Botão esquerdo do mouse - Atacar"
+        ]
+        for i, command in enumerate(commands):
+            command_text = command_font.render(command, True, command_color)
+            screen.blit(command_text, (width // 2 - command_text.get_width() // 2, height // 2 - 60 + i * 30))
 
         # Texto para iniciar o jogo (piscar)
         blink_time += 1
@@ -239,7 +276,7 @@ def show_start_screen(screen):
 
         if show_press_key:
             start_text = small_font.render("Pressione qualquer tecla para começar", True, highlight_color)
-            screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 + 80))
+            screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 + 150))
 
         # Atualizar a tela
         pygame.display.flip()
@@ -256,7 +293,10 @@ def show_start_screen(screen):
     pygame.mixer.music.stop()
 
 def show_end_screen(screen, message):
-    global running  
+    global running, win_sound, score, ambient_channel  # Adicione 'score' como variável global
+    win_sound.play()
+    ambient_channel.stop()
+
     # Carregar fontes e definir cores
     pygame.font.init()
     title_font = pygame.font.Font(None, 80)  # Fonte maior para o título
@@ -283,11 +323,15 @@ def show_end_screen(screen, message):
     message_text = text_font.render(message, True, text_color)
     screen.blit(message_text, (width // 2 - message_text.get_width() // 2, height // 2 - 50))
 
+    # Exibir o score final
+    score_text = text_font.render(f"Score Final: {score}", True, highlight_color)
+    screen.blit(score_text, (width // 2 - score_text.get_width() // 2, height // 2 + 10))  # Ajuste a posição conforme necessário
+
     # Instruções para o jogador
     restart_text = text_font.render("Pressione 'R' para reiniciar ou qualquer outra tecla para sair", True, highlight_color)
-    screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 50))
+    screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 80))
 
-    # Elementos decorativos: Partículas de confete
+    # Partículas
     particles = []
     for _ in range(100):
         particles.append({
@@ -305,7 +349,8 @@ def show_end_screen(screen, message):
         # Desenhar elementos de texto
         screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 2 - 150))
         screen.blit(message_text, (width // 2 - message_text.get_width() // 2, height // 2 - 50))
-        screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 50))
+        screen.blit(score_text, (width // 2 - score_text.get_width() // 2, height // 2 + 10))
+        screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 80))
 
         # Atualizar e desenhar as partículas de confete
         for particle in particles:
@@ -331,15 +376,104 @@ def show_end_screen(screen, message):
                 else:
                     pygame.quit()
                     quit()
+
+def show_death_screen(screen):
+    global running, gameover_sound, ambient_channel
+    # Carregar fontes e definir cores
+    pygame.font.init()
+    ambient_channel.stop()
+    gameover_sound.play()
+    title_font = pygame.font.Font(None, 80)  # Fonte maior para o título
+    text_font = pygame.font.Font(None, 40)
+    small_font = pygame.font.Font(None, 30)
+
+    # Cores sombrias e perturbadoras
+    background_color = (0, 0, 0)  # Preto
+    title_color = (200, 0, 0)  # Vermelho sangue
+    text_color = (255, 255, 255)  # Branco
+    highlight_color = (255, 0, 0)  # Vermelho intenso para destaques
+    shadow_color = (50, 50, 50)  # Sombras sombrias
+
+    # Preencher a tela com uma cor de fundo escura
+    screen.fill(background_color)
+
+    # Distorção no título para criar um efeito perturbador
+    shadow_offset = 10
+    title_text = title_font.render("VOCÊ MORREU", True, shadow_color)
+    screen.blit(title_text, (width // 2 - title_text.get_width() // 2 + random.randint(-5, 5), height // 3 - 150 + random.randint(-5, 5)))
+    title_text = title_font.render("VOCÊ MORREU", True, title_color)
+    screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 3 - 150))
+
+    # Instruções para o jogador, destacando o que fazer
+    restart_text = text_font.render("Pressione 'R' para reiniciar ou qualquer outra tecla para sair", True, highlight_color)
+    screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 100))
+
+    # Efeito de partículas flutuantes e aleatórias para criar um clima de desolação
+    particles = []
+    for _ in range(100):
+        gray_value = random.randint(50, 100)  # Gera um valor de cinza entre 50 e 100 (escuro)
+        particles.append({
+            'x': random.randint(0, width),
+            'y': random.randint(0, height),
+            'radius': random.randint(2, 5),
+            'color': (gray_value, gray_value, gray_value),
+            'velocity': random.uniform(0.5, 2.0)
+        })
+
+    waiting = True
+    while waiting:
+        screen.fill(background_color)  # Re-pintar o fundo a cada frame
+
+        # Desenhar elementos de texto com distorção
+        screen.blit(title_text, (width // 2 - title_text.get_width() // 2, height // 3 - 150))
+        screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2, height // 2 + 100))
+
+        # Atualizar e desenhar partículas flutuantes para aumentar o efeito de terror
+        for particle in particles:
+            particle['y'] += particle['velocity']
+            if particle['y'] > height:
+                particle['y'] = -10  # Reseta a posição para dar efeito de "chuva infinita"
+                particle['x'] = random.randint(0, width)
+            pygame.draw.circle(screen, particle['color'], (particle['x'], int(particle['y'])), particle['radius'])
+
+        # Efeito de tremor
+        shake_offset_x = random.randint(-5, 5)
+        shake_offset_y = random.randint(-5, 5)
+        screen.blit(title_text, (width // 2 - title_text.get_width() // 2 + shake_offset_x, height // 3 - 150 + shake_offset_y))
+        screen.blit(restart_text, (width // 2 - restart_text.get_width() // 2 + shake_offset_x, height // 2 + 100 + shake_offset_y))
+
+        # Atualizar a tela
+        pygame.display.flip()
+
+        # Esperar pela entrada do jogador
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_r:
+                    waiting = False  # Reinicia o jogo
+                    running = True
+                    restart_game()  # Sua função para reiniciar o jogo
+                else:
+                    pygame.quit()
+                    sys.exit()
+
+        # Limita a taxa de quadros para não sobrecarregar o processamento
+        pygame.time.Clock().tick(60)
+
 def update(dt):
-    global hero_anim_frame, hero_pos, hero_anim_time, direction, camera_offset, zumbi_pos_list, lama_pos_list, running, vida, last_collision_time, zumbi_speed_list, is_attacking, attack_time, item_coletado, vitoria, item_pos, hero_speed, damage_time
+    global hero_anim_frame, hero_pos, hero_anim_time, direction, camera_offset, zumbi_pos_list, lama_pos_list, running, vida, last_collision_time, zumbi_speed_list, is_attacking, attack_time, item_coletado, vitoria, item_pos, hero_speed, damage_time, isMoving, walk_channel, walk_sound, potion_sound, sword_channel, damage_sound
     keys = pygame.key.get_pressed()
 
+    isMoving = False
     if keys[pygame.K_r]:
         restart_game()
     if keys[pygame.K_e]:
         use_pocao_vida()
     if keys[pygame.K_d]:
+        isMoving = True
         hero_pos[0] += hero_speed * dt
         direction = "right"
         hero_anim_time += dt
@@ -348,6 +482,7 @@ def update(dt):
             hero_anim_time = 0
     elif keys[pygame.K_a] and hero_pos[0] > 0:
         hero_pos[0] -= hero_speed * dt
+        isMoving = True
         direction = "left"
         hero_anim_time += dt
         if hero_anim_time > 100:
@@ -355,12 +490,14 @@ def update(dt):
             hero_anim_time = 0
     elif keys[pygame.K_w] and hero_pos[1] > -10:
         hero_pos[1] -= hero_speed * dt
+        isMoving = True
         hero_anim_time += dt
         if hero_anim_time > 100:
             hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])  # Mantém a direção atual (esquerda ou direita)
             hero_anim_time = 0
     elif keys[pygame.K_s] and hero_pos[1] < 440:
         hero_pos[1] += hero_speed * dt
+        isMoving = True
         hero_anim_time += dt
         if hero_anim_time > 100:
             hero_anim_frame = (hero_anim_frame + 1) % len(hero_walk[direction])  # Mantém a direção atual (esquerda ou direita)
@@ -369,6 +506,12 @@ def update(dt):
         hero_anim_frame = 0
         hero_anim_time = 0
 
+    if isMoving:
+        if not walk_channel.get_busy():
+            walk_channel.play(walk_sound, loops=-1)  # Toca o som de andar em loop enquanto o personagem se move  # Para o som de andar quando o personagem parar
+    else:
+        walk_channel.stop()
+    
     for i, lama_pos in enumerate(lama_pos_list):
         lama_rect = pygame.Rect(lama_pos[0], lama_pos[1], tile_size, tile_size)
         hero_rect = pygame.Rect(hero_pos[0], hero_pos[1] + 18, tile_size * 0.7, tile_size * 0.8)
@@ -381,8 +524,9 @@ def update(dt):
 
     current_time = pygame.time.get_ticks()
     if current_time - last_collision_time > collision_delay:
-        if check_collision_with_water(hero_rect):
+        if check_collision_with_spike(hero_rect):
             vida -= 1
+            damage_sound.play()
             last_collision_time = current_time
             is_damaged = True  # Define o estado de dano
             damage_time = current_time  # Registra o momento do dano
@@ -406,6 +550,8 @@ def update(dt):
         check_attack()  # Continue verificando se acertou algum monstro
 
     if is_attacking:
+        if not sword_channel.get_busy():
+            sword_channel.play(sword_sound)
         current_time = pygame.time.get_ticks()
         if current_time - attack_time > 200:
             is_attacking = False
@@ -452,6 +598,7 @@ def update(dt):
         if current_time - last_collision_time > collision_delay:
             if hero_rect.colliderect(zumbi_rect):
                 vida -= 1
+                damage_sound.play()
                 last_collision_time = current_time
 
     # Verifica colisão com os monstros de lama
@@ -460,6 +607,7 @@ def update(dt):
         if current_time - last_collision_time > collision_delay:
             if hero_rect.colliderect(lama_rect):
                 vida -= 1
+                damage_sound.play()
                 last_collision_time = current_time
 
     if current_time - damage_time > 500:  # O estado de dano dura 500 ms
@@ -467,10 +615,12 @@ def update(dt):
 
     if vida == 0:
         running = False
-        show_end_screen(screen, "Você perdeu! Pressione qualquer tecla para sair.")
+        walk_channel.stop()
+        show_death_screen(screen)
 
     if vitoria:
         running = False
+        walk_channel.stop()
         show_end_screen(screen, "Você venceu! Pressione qualquer tecla para sair.")
 
 def draw_screen(screen):
