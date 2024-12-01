@@ -2,8 +2,8 @@ import pygame
 import random
 import sys
 
-width = 1280
-height = 720
+width = 64 * 14
+height = 64 * 10
 tile_size = 64
 item_pos = None
 lama_ativo_list = [] 
@@ -267,9 +267,9 @@ def show_start_screen(screen):
 
         # Texto de instrução
         instruction_text = text_font.render("Resgate a princesa e retorne em segurança!", True, text_color)
-        #screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - 120))
+        screen.blit(instruction_text, (width // 2 - instruction_text.get_width() // 2, height // 2 - 120))
 
-        '''# Comandos do jogador
+        # Comandos do jogador
         commands = [
             "WASD - Andar",
             "E - Usar poção de vida",
@@ -284,11 +284,11 @@ def show_start_screen(screen):
         blink_time += 1
         if blink_time > 30:
             blink_time = 0
-            show_press_key = not show_press_key'''
+            show_press_key = not show_press_key
 
         if show_press_key:
             start_text = small_font.render("Pressione qualquer tecla para começar", True, highlight_color)
-            #screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 + 150))
+            screen.blit(start_text, (width // 2 - start_text.get_width() // 2, height // 2 + 150))
 
         # Atualizar a tela
         pygame.display.flip()
@@ -303,6 +303,7 @@ def show_start_screen(screen):
 
     # Parar a música de fundo ao sair da tela de início
     pygame.mixer.music.stop()
+
 
 def show_end_screen(screen, message):
     global running, win_sound, score, ambient_channel  # Adicione 'score' como variável global
