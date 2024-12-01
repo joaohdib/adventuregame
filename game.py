@@ -304,7 +304,6 @@ def show_start_screen(screen):
     # Parar a música de fundo ao sair da tela de início
     pygame.mixer.music.stop()
 
-
 def show_end_screen(screen, message):
     global running, win_sound, score, ambient_channel  # Adicione 'score' como variável global
     win_sound.play()
