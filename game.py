@@ -472,7 +472,7 @@ def update(dt):
         restart_game()
     if keys[pygame.K_e]:
         use_pocao_vida()
-    if keys[pygame.K_d]:
+    if keys[pygame.K_d] and hero_pos[0] < 2800:
         isMoving = True
         hero_pos[0] += hero_speed * dt
         direction = "right"
@@ -667,7 +667,7 @@ def draw_screen(screen):
         lama_frame = lama_walk[lama_anim_frame_list[i]]  # Pega o frame atual do lama
         screen.blit(lama_frame, (lama_pos[0] - camera_offset[0], lama_pos[1] - camera_offset[1]))
 
-    # Desenha o retângulo de colisão do personagem principal
+    # Desenha o retânguloS de colisão do personagem principal
     hero_rect = pygame.Rect(hero_pos[0], hero_pos[1]+18, tile_size*0.7, tile_size * 0.8)
     #pygame.draw.rect(screen, (0, 255, 0), (hero_rect.x - camera_offset[0], hero_rect.y - camera_offset[1], hero_rect.width, hero_rect.height), 2)
 
@@ -679,7 +679,7 @@ def draw_screen(screen):
         screen.blit(coracaoVazio, ((2 - i) * 65, 10))
     
     if not item_coletado and item_pos is not None:
-        item_img = pygame.image.load("item.png")
+        item_img = pygame.image.load("princess.png")
         item_width = item_img.get_width()
         item_height = item_img.get_height()
 
@@ -700,6 +700,8 @@ def draw_screen(screen):
     screen.blit(score_text, (width - 200, 10))
     pocao_text = font.render(f"Poções de Vida: {pocao_vida}", True, (255, 255, 255))
     screen.blit(pocao_text, (width - 250, 50))
+
+    print(hero_pos)
 
 def main_loop(screen):
     global clock, running
